@@ -72,9 +72,15 @@ namespace winrt::Microsoft::Terminal::Settings::Editor::implementation
 
         co_await winrt::resume_foreground(Dispatcher());
 
+        auto menuItems{ SettingsNav().MenuItems() };
+        if (menuItems == nullptr)
+        {
+            // GH#9273: menuItems can be null. So let's just make sure it exists.
+            co_return;
+        }
+
         // Deduce information about the currently selected item
         IInspectable selectedItemTag;
-        auto menuItems{ SettingsNav().MenuItems() };
         if (const auto& selectedItem{ SettingsNav().SelectedItem() })
         {
             if (const auto& navViewItem{ selectedItem.try_as<MUX::Controls::NavigationViewItem>() })
@@ -87,7 +93,7 @@ namespace winrt::Microsoft::Terminal::Settings::Editor::implementation
         // with the ones we want to keep.
         // NOTE: menuItems.Remove() causes an out-of-bounds crash. Using ReplaceAll()
         //       gets around this crash.
-        std::vector<IInspectable> menuItemsSTL;
+        std::vector<IInspectable> menuItemsSTL{};
         for (const auto& item : menuItems)
         {
             if (const auto& navViewItem{ item.try_as<MUX::Controls::NavigationViewItem>() })
@@ -110,6 +116,11 @@ namespace winrt::Microsoft::Terminal::Settings::Editor::implementation
                 }
             }
             menuItemsSTL.emplace_back(item);
+        }
+        if (menuItems == nullptr || menuItemsSTL.empty())
+        {
+            // GH#9273: menuItems can be null. So let's just make sure it exists.
+            co_return;
         }
         menuItems.ReplaceAll(menuItemsSTL);
 
@@ -341,6 +352,13 @@ namespace winrt::Microsoft::Terminal::Settings::Editor::implementation
 
     void MainPage::_InitializeProfilesList()
     {
+        auto menuItems{ SettingsNav().MenuItems() };
+        if (menuItems == nullptr)
+        {
+            // GH#9273: menuItems can be null. So let's just make sure it exists.
+            return;
+        }
+
         // Manually create a NavigationViewItem for each profile
         // and keep a reference to them in a map so that we
         // can easily modify the correct one when the associated
@@ -348,7 +366,7 @@ namespace winrt::Microsoft::Terminal::Settings::Editor::implementation
         for (const auto& profile : _settingsClone.AllProfiles())
         {
             auto navItem = _CreateProfileNavViewItem(_viewModelForProfile(profile));
-            SettingsNav().MenuItems().Append(navItem);
+            menuItems.Append(navItem);
         }
 
         // Top off (the end of the nav view) with the Add Profile item
@@ -362,7 +380,7 @@ namespace winrt::Microsoft::Terminal::Settings::Editor::implementation
         icon.Glyph(L"\xE710");
         addProfileItem.Icon(icon);
 
-        SettingsNav().MenuItems().Append(addProfileItem);
+        menuItems.Append(addProfileItem);
     }
 
     void MainPage::_CreateAndNavigateToNewProfile(const uint32_t index)
